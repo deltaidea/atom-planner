@@ -1,0 +1,21 @@
+{
+  "name": "planner",
+  "description": "Plan your day using nothing more than text",
+  "main": ".lib/main",
+  "version": "0.1.0",
+  "private": "true",
+  "engines": {
+    "atom": "~1.0.0"
+  },
+  "author": {
+    "name": "Nikita Litvin",
+    "email": "deltaidea@derpy.ru",
+    "url": "https://github.com/deltaidea"
+  },
+  "license": "GPLv3",
+  "repository": "https://github.com/deltaidea/atom-planner",
+  "homepage": "https://github.com/deltaidea/atom-planner",
+  "bugs": {
+    "url": "https://github.com/deltaidea/atom-planner/issues"
+  }
+}
