@@ -1,7 +1,7 @@
 {
   "name": "planner",
   "description": "Plan your day using nothing more than text",
-  "main": ".lib/main",
+  "main": "./lib/main",
   "version": "0.1.0",
   "private": "true",
   "engines": {
