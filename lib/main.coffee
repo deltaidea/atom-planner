@@ -1,7 +1,7 @@
 { Range } = require "atom"
 
 allHeadersRegexp = /^.+\.planner$/g
-taskRegexp = /^  \* \d?\d:\d\d( [AP]M)? .*$/
+taskRegexp = /^  \* (\d?\d:\d\d) (.*)$/i
 
 module.exports = AtomPlanner =
 
@@ -17,35 +17,43 @@ module.exports = AtomPlanner =
 
 					headerStartPoint = headerMatch.range.start
 					headerRow = headerStartPoint.row
-					console.log "Found a planner header at line #{headerRow}"
+					console.log "Found a planner header at line #{headerRow + 1}"
+
+					planner =
+						title: editor.lineTextForBufferRow headerRow
+						tasks: []
 
 					currentRow = headerRow + 1
+					isFirstLine = yes
 					loop
 						currentRowText = editor.lineTextForBufferRow currentRow
 
 						currentRowRange = new Range [ currentRow, 0 ],
 							[ currentRow, currentRowText.length ]
 
-						if not taskRegexp.test currentRowText
+						taskMatch = currentRowText.match taskRegexp
+						if taskMatch
 
-							if ( currentRowText is "  " ) or
-							( ( currentRowText is "" ) and ( currentRow is headerRow + 1 ) )
+							task =
+								time: taskMatch[ 1 ]
+								text: taskMatch[ 2 ]
 
-								editor.setTextInBufferRange currentRowRange, "  * ",
-									undo: "skip"
+							planner.tasks.push task
 
-							else
-								break
+							console.log "Found a planner task at line #{currentRow + 1}:", task
+
+						else if ( currentRowText is "  " ) or
+						( ( currentRowText is "" ) and isFirstLine )
+
+							console.log "Adding a new task at line #{currentRow + 1}"
+
+							newTaskText = "  * "
+
+							editor.setTextInBufferRange currentRowRange, newTaskText,
+								undo: "skip"
 
 						else
-							console.log "Found a planner task at line #{currentRow}"
+							break
 
-							taskMarker = editor.markBufferRange currentRowRange,
-								persistent: no
-								invalidate: "touch"
-
-							editor.decorateMarker taskMarker,
-								type: "highlight"
-								class: "planner-task"
-
-							currentRow += 1
+						currentRow += 1
+						isFirstLine = no
