@@ -15,13 +15,7 @@ module.exports = AtomPlanner =
 
 				editor.scan allHeadersRegexp, ( match ) ->
 
-					headerMarker = editor.markBufferRange match.range,
-						persistent: no
-						invalidate: "touch"
 
-					editor.decorateMarker headerMarker,
-						type: "highlight"
-						class: "planner-header"
 
 					headerLine = match.range.start.row
 					console.log "Found a planner header at line #{headerLine}"
