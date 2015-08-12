@@ -13,35 +13,34 @@ module.exports = AtomPlanner =
 			editor.onDidChange ->
 				console.log "Searching for planners:", editor.lastOpened
 
-				editor.scan allHeadersRegexp, ( match ) ->
+				editor.scan allHeadersRegexp, ( headerMatch ) ->
 
+					headerStartPoint = headerMatch.range.start
+					headerRow = headerStartPoint.row
+					console.log "Found a planner header at line #{headerRow}"
 
-
-					headerLine = match.range.start.row
-					console.log "Found a planner header at line #{headerLine}"
-
-					currentLine = headerLine + 1
+					currentRow = headerRow + 1
 					loop
-						currentLineText = editor.lineTextForBufferRow currentLine
+						currentRowText = editor.lineTextForBufferRow currentRow
 
-						currentLineRange = new Range [ currentLine, 0 ],
-							[ currentLine, currentLineText.length ]
+						currentRowRange = new Range [ currentRow, 0 ],
+							[ currentRow, currentRowText.length ]
 
-						if not taskRegexp.test currentLineText
+						if not taskRegexp.test currentRowText
 
-							if ( currentLineText is "  " ) or
-							( ( currentLineText is "" ) and ( currentLine is headerLine + 1 ) )
+							if ( currentRowText is "  " ) or
+							( ( currentRowText is "" ) and ( currentRow is headerRow + 1 ) )
 
-								editor.setTextInBufferRange currentLineRange, "  * ",
+								editor.setTextInBufferRange currentRowRange, "  * ",
 									undo: "skip"
 
 							else
 								break
 
 						else
-							console.log "Found a planner task at line #{currentLine}"
+							console.log "Found a planner task at line #{currentRow}"
 
-							taskMarker = editor.markBufferRange currentLineRange,
+							taskMarker = editor.markBufferRange currentRowRange,
 								persistent: no
 								invalidate: "touch"
 
@@ -49,4 +48,4 @@ module.exports = AtomPlanner =
 								type: "highlight"
 								class: "planner-task"
 
-							currentLine += 1
+							currentRow += 1
