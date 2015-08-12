@@ -10,7 +10,7 @@ module.exports = AtomPlanner =
 		atom.workspace.observeTextEditors ( editor ) ->
 			plannerRanges = []
 
-			editor.onDidChange ->
+			editor.onDidStopChanging ->
 				console.log "Searching for planners:", editor.lastOpened
 
 				editor.scan allHeadersRegexp, ( headerMatch ) ->
