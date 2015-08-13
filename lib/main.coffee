@@ -75,6 +75,17 @@ decorateTaskText = ( editor, currentRow, parts ) ->
 
 	partMarker
 
+decoratePlannerHeader = ( editor, currentRow ) ->
+	headerMarker = editor.markBufferPosition [ currentRow, 0 ],
+		invalidate: "touch"
+		persistent: no
+
+	decoration = editor.decorateMarker headerMarker,
+		type: "line"
+		class: "planner-header"
+
+	headerMarker
+
 module.exports = AtomPlanner =
 
 	activate: ->
@@ -100,6 +111,8 @@ module.exports = AtomPlanner =
 						planner =
 							title: headerText
 							tasks: []
+
+						decorationMarkers.push decoratePlannerHeader editor, currentRow
 
 						currentRow += 1
 						isFirstLine = yes
