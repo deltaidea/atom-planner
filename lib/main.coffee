@@ -52,7 +52,7 @@ hourMinuteToTime = ( customHour, customMinute ) ->
 	currentMinute = currentTime.getMinutes()
 	new Date 1970, 0, 1, customHour ? currentHour, customMinute ? currentMinute
 
-timeLeft = ( task ) ->
+timeRemaining = ( task ) ->
 	timeNow = hourMinuteToTime()
 	endingTime = getEndingTime task
 	timeZoneOffset = +new Date 1970, 0, 1
@@ -159,7 +159,7 @@ updateStatusBar = ->
 
 			task = getCurrentTask planner
 			if task
-				textList.push "#{task.text} - #{timeToText ( timeLeft task ), yes}"
+				textList.push "#{task.text} - #{timeToText ( timeRemaining task ), yes}"
 
 	statusBarElement.textContent = textList.join ", "
 
