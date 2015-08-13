@@ -211,7 +211,14 @@ module.exports = AtomPlanner =
 					if not isHeaderLine
 						currentRow += 1
 					else
+						# For the next iteration.
 						isHeaderLine = no
+
+						if currentRow is lastRowNumber
+							currentRowRange = new Range [ currentRow, 0 ],
+								[ currentRow, headerText.length ]
+							editor.setTextInBufferRange currentRowRange, headerText + "\n",
+								undo: "skip"
 
 						planner =
 							editor: editor
@@ -228,31 +235,34 @@ module.exports = AtomPlanner =
 						isFirstLine = yes
 
 						loop
-							currentRowText = editor.lineTextForBufferRow currentRow
+							try
+								currentRowText = editor.lineTextForBufferRow currentRow
 
-							currentRowRange = new Range [ currentRow, 0 ],
-								[ currentRow, currentRowText.length ]
+								currentRowRange = new Range [ currentRow, 0 ],
+									[ currentRow, currentRowText.length ]
 
-							taskMatch = currentRowText.match taskRegexp
+								taskMatch = currentRowText.match taskRegexp
 
-							if taskMatch or
-							( currentRowText is "  " ) or
-							( ( currentRowText is "" ) and isFirstLine )
+								if taskMatch or
+								( currentRowText is "  " ) or
+								( ( currentRowText is "" ) and isFirstLine )
 
-								task = createTask planner, taskMatch, currentRow
-								planner.tasks.push task
+									task = createTask planner, taskMatch, currentRow
+									planner.tasks.push task
 
-								canonicalTaskText = taskToText task
-								if canonicalTaskText isnt currentRowText
-									editor.setTextInBufferRange currentRowRange, canonicalTaskText,
-										undo: "skip"
+									canonicalTaskText = taskToText task
+									if canonicalTaskText isnt currentRowText
+										editor.setTextInBufferRange currentRowRange, canonicalTaskText,
+											undo: "skip"
 
-								decorateTaskText task
+									decorateTaskText task
 
-								if task is getCurrentTask planner
-									highlightTask task
+									if task is getCurrentTask planner
+										highlightTask task
 
-							else
+								else
+									break
+							catch
 								break
 
 							currentRow += 1
