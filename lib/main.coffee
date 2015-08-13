@@ -1,7 +1,5 @@
 { Range } = require "atom"
 
-headerRegexp = /^.+\.planner$/
-
 # ["  * 21:02 foo 10 hours 30 minutes", "21", "02", "foo", " 10 hours", "10", " 30 minutes", "30"]
 taskRegexp = /^  \* (\d\d):(\d\d) (.*?)( (\d{1,2}) hours?)?( (\d{1,2}) minutes?)?$/i
 
@@ -163,9 +161,19 @@ module.exports = AtomPlanner =
 				while currentRow <= lastRowNumber
 
 					headerText = editor.lineTextForBufferRow currentRow
-					if not headerRegexp.test headerText
+
+					if headerText.endsWith ".planner"
+						isHeaderLine = yes
+						shouldAddToStatusBar = yes
+					else if headerText.endsWith ".planner-no-status"
+						isHeaderLine = yes
+						shouldAddToStatusBar = no
+
+					if not isHeaderLine
 						currentRow += 1
 					else
+						isHeaderLine = no
+
 						planner =
 							title: headerText
 							tasks: []
@@ -209,7 +217,7 @@ module.exports = AtomPlanner =
 							currentRow += 1
 							isFirstLine = no
 
-						if planner.tasks.length
+						if planner.tasks.length and shouldAddToStatusBar
 							addPlannerToStatusBar planner
 
 	consumeStatusBar: ( statusBar ) ->
