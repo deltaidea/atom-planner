@@ -56,14 +56,12 @@ createTask = ( planner, match = [] ) ->
 	text: parsedText
 	duration: new Date 1970, 0, 1, parsedDurationHour, parsedDurationMinute
 
-decorateTaskPart = ( editor, currentRow, parts, targetPart, cssClass ) ->
-	startPosition = 0
-	for own key, value of parts
-		if key is targetPart
-			endPosition = startPosition + value.length
-			break
-		else
-			startPosition += value.length
+decorateTaskText = ( editor, currentRow, parts ) ->
+	startPosition = parts.prefix.length +
+		parts.startTime.length +
+		parts.startTimeDelimiter.length
+
+	endPosition = startPosition + parts.text.length
 
 	partRange = new Range [ currentRow, startPosition ], [ currentRow, endPosition ]
 
@@ -73,7 +71,7 @@ decorateTaskPart = ( editor, currentRow, parts, targetPart, cssClass ) ->
 
 	decoration = editor.decorateMarker partMarker,
 		type: "highlight"
-		class: cssClass
+		class: "planner-task-text"
 
 	partMarker
 
@@ -122,7 +120,7 @@ module.exports = AtomPlanner =
 
 							parts = taskToText task, yes
 
-							decorationMarkers.push decorateTaskPart editor, currentRow, parts, "text", "planner-task-text"
+							decorationMarkers.push decorateTaskText editor, currentRow, parts
 
 						else
 							break
