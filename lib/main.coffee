@@ -1,23 +1,98 @@
 { Range } = require "atom"
 
 allHeadersRegexp = /^.+\.planner$/g
-taskRegexp = /^  \* (\d?\d:\d\d) (.*)$/i
+
+# ["  * 21:02 foo 10 hours 30 minutes", "21", "02", "foo", " 10 hours", "10", " 30 minutes", "30"]
+taskRegexp = /^  \* (\d\d):(\d\d) (.*?)( (\d{1,2}) hours?)?( (\d{1,2}) minutes?)?$/i
+
+timeToText = ( time ) ->
+	paddedHour = ( "00" + time.getHours() ).slice -2
+	paddedMinute = ( "00" + time.getMinutes() ).slice -2
+	"#{paddedHour}:#{paddedMinute}"
+
+taskToText = ( task, returnAsParts = no ) ->
+	parts =
+		prefix: "  * "
+		startTime: "#{timeToText task.startTime}"
+		startTimeDelimiter: " "
+		text: "#{task.text}"
+		duration: ""
+
+	if task.duration
+		if task.duration.getHours()
+			parts.duration += " #{task.duration.getHours()} hours"
+		if task.duration.getMinutes()
+			parts.duration += " #{task.duration.getMinutes()} minutes"
+
+	if returnAsParts
+		parts
+	else
+		parts.prefix + parts.startTime + parts.startTimeDelimiter + parts.text + parts.duration
+
+getEndingTime = ( planner ) ->
+	lastTask = planner.tasks[ planner.tasks.length - 1 ]
+	timeZoneOffset = +new Date 1970, 0, 1
+	new Date ( +lastTask.startTime ) + ( +lastTask.duration ) - timeZoneOffset
+
+hourMinuteToTime = ( customHour, customMinute ) ->
+	currentTime = new Date
+	currentHour = currentTime.getHours()
+	currentMinute = currentTime.getMinutes()
+	new Date 1970, 0, 1, customHour ? currentHour, customMinute ? currentMinute
+
+createTask = ( planner, match = [] ) ->
+	parsedHour = match[ 1 ]
+	parsedMinute = match[ 2 ]
+	parsedText = match[ 3 ] ? ""
+	parsedDurationHour = match[ 5 ] ? 0
+	parsedDurationMinute = match[ 7 ] ? 0
+
+	if planner?.tasks?.length
+		startTime = getEndingTime planner
+	else
+		startTime = hourMinuteToTime parsedHour, parsedMinute
+
+	startTime: startTime
+	text: parsedText
+	duration: new Date 1970, 0, 1, parsedDurationHour, parsedDurationMinute
+
+decorateTaskPart = ( editor, currentRow, parts, targetPart, cssClass ) ->
+	startPosition = 0
+	for own key, value of parts
+		if key is targetPart
+			endPosition = startPosition + value.length
+			break
+		else
+			startPosition += value.length
+
+	partRange = new Range [ currentRow, startPosition ], [ currentRow, endPosition ]
+
+	partMarker = editor.markBufferRange partRange,
+		invalidate: "touch"
+		persistent: no
+
+	decoration = editor.decorateMarker partMarker,
+		type: "highlight"
+		class: cssClass
+
+	partMarker
 
 module.exports = AtomPlanner =
 
 	activate: ->
-		console.log "Activating!"
 		atom.workspace.observeTextEditors ( editor ) ->
-			plannerRanges = []
+
+			decorationMarkers = []
 
 			editor.onDidStopChanging ->
-				console.log "Searching for planners:", editor.lastOpened
+
+				for oldMarker in decorationMarkers
+					oldMarker?.destroy?()
+				decorationMarkers = []
 
 				editor.scan allHeadersRegexp, ( headerMatch ) ->
-
 					headerStartPoint = headerMatch.range.start
 					headerRow = headerStartPoint.row
-					console.log "Found a planner header at line #{headerRow + 1}"
 
 					planner =
 						title: editor.lineTextForBufferRow headerRow
@@ -32,25 +107,22 @@ module.exports = AtomPlanner =
 							[ currentRow, currentRowText.length ]
 
 						taskMatch = currentRowText.match taskRegexp
-						if taskMatch
 
-							task =
-								time: taskMatch[ 1 ]
-								text: taskMatch[ 2 ]
-
-							planner.tasks.push task
-
-							console.log "Found a planner task at line #{currentRow + 1}:", task
-
-						else if ( currentRowText is "  " ) or
+						if taskMatch or
+						( currentRowText is "  " ) or
 						( ( currentRowText is "" ) and isFirstLine )
 
-							console.log "Adding a new task at line #{currentRow + 1}"
+							task = createTask planner, taskMatch
+							planner.tasks.push task
 
-							newTaskText = "  * "
+							canonicalTaskText = taskToText task
+							if canonicalTaskText isnt currentRowText
+								editor.setTextInBufferRange currentRowRange, canonicalTaskText,
+									undo: "skip"
 
-							editor.setTextInBufferRange currentRowRange, newTaskText,
-								undo: "skip"
+							parts = taskToText task, yes
+
+							decorationMarkers.push decorateTaskPart editor, currentRow, parts, "text", "planner-task-text"
 
 						else
 							break
