@@ -4,4 +4,6 @@ module.exports = getEndingTime = ( plannerOrTask ) ->
 	else
 		task = plannerOrTask
 	timeZoneOffset = +new Date 1970, 0, 1
-	new Date ( +task.startTime ) + ( +task.duration ) - timeZoneOffset
+	result = new Date ( +task.startTime ) + ( +task.duration ) - timeZoneOffset
+	result.setDate 1
+	result

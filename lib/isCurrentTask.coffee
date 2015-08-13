@@ -6,4 +6,8 @@ module.exports = isCurrentTask = ( task ) ->
 	startTime = task.startTime
 	endingTime = getEndingTime task
 
-	startTime <= currentTime < endingTime
+	if endingTime > startTime
+		startTime <= currentTime < endingTime
+	else
+		# Task duration surrounds midnight.
+		startTime <= currentTime or currentTime < endingTime
