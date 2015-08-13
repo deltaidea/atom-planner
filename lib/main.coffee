@@ -5,10 +5,24 @@ headerRegexp = /^.+\.planner$/
 # ["  * 21:02 foo 10 hours 30 minutes", "21", "02", "foo", " 10 hours", "10", " 30 minutes", "30"]
 taskRegexp = /^  \* (\d\d):(\d\d) (.*?)( (\d{1,2}) hours?)?( (\d{1,2}) minutes?)?$/i
 
-timeToText = ( time ) ->
-	paddedHour = ( "00" + time.getHours() ).slice -2
-	paddedMinute = ( "00" + time.getMinutes() ).slice -2
-	"#{paddedHour}:#{paddedMinute}"
+timeToText = ( time, readable = no ) ->
+	if readable
+		text = ""
+		hours = time.getHours()
+		minutes = time.getMinutes()
+		if hours
+			text += " #{hours} hour"
+			if hours > 1
+				text += "s"
+		if minutes
+			text += " #{minutes} minute"
+			if minutes > 1
+				text += "s"
+		text
+	else
+		paddedHour = ( "00" + time.getHours() ).slice -2
+		paddedMinute = ( "00" + time.getMinutes() ).slice -2
+		"#{paddedHour}:#{paddedMinute}"
 
 taskToText = ( task, returnAsParts = no ) ->
 	parts =
@@ -19,26 +33,32 @@ taskToText = ( task, returnAsParts = no ) ->
 		duration: ""
 
 	if task.duration
-		if task.duration.getHours()
-			parts.duration += " #{task.duration.getHours()} hours"
-		if task.duration.getMinutes()
-			parts.duration += " #{task.duration.getMinutes()} minutes"
+		parts.duration = timeToText task.duration, yes
 
 	if returnAsParts
 		parts
 	else
 		parts.prefix + parts.startTime + parts.startTimeDelimiter + parts.text + parts.duration
 
-getEndingTime = ( planner ) ->
-	lastTask = planner.tasks[ planner.tasks.length - 1 ]
+getEndingTime = ( plannerOrTask ) ->
+	if plannerOrTask.tasks
+		task = plannerOrTask.tasks[ plannerOrTask.tasks.length - 1 ]
+	else
+		task = plannerOrTask
 	timeZoneOffset = +new Date 1970, 0, 1
-	new Date ( +lastTask.startTime ) + ( +lastTask.duration ) - timeZoneOffset
+	new Date ( +task.startTime ) + ( +task.duration ) - timeZoneOffset
 
 hourMinuteToTime = ( customHour, customMinute ) ->
 	currentTime = new Date
 	currentHour = currentTime.getHours()
 	currentMinute = currentTime.getMinutes()
 	new Date 1970, 0, 1, customHour ? currentHour, customMinute ? currentMinute
+
+timeLeft = ( task ) ->
+	timeNow = hourMinuteToTime()
+	endingTime = getEndingTime task
+	timeZoneOffset = +new Date 1970, 0, 1
+	new Date endingTime - timeNow + timeZoneOffset
 
 createTask = ( planner, match = [] ) ->
 	parsedHour = match[ 1 ]
@@ -55,6 +75,18 @@ createTask = ( planner, match = [] ) ->
 	startTime: startTime
 	text: parsedText
 	duration: new Date 1970, 0, 1, parsedDurationHour, parsedDurationMinute
+
+isCurrentTask = ( task ) ->
+	currentTime = hourMinuteToTime()
+	startTime = task.startTime
+	endingTime = getEndingTime task
+
+	startTime <= currentTime < endingTime
+
+getCurrentTask = ( planner ) ->
+	for task in planner.tasks
+		if isCurrentTask task
+			return task
 
 decorateTaskText = ( editor, currentRow, parts ) ->
 	startPosition = parts.prefix.length +
@@ -86,6 +118,30 @@ decoratePlannerHeader = ( editor, currentRow ) ->
 
 	headerMarker
 
+statusBarElement = document.createElement "span"
+statusBarTile = null
+statusBarPlanners = []
+
+updateStatusBar = ->
+	textList = []
+
+	for planner in statusBarPlanners
+		task = getCurrentTask planner
+		if task
+			textList.push "#{task.text} - #{timeToText ( timeLeft task ), yes}"
+
+	statusBarElement.textContent = textList.join ", "
+
+addPlannerToStatusBar = ( planner ) ->
+	statusBarPlanners.push planner
+	updateStatusBar()
+
+resetStatusBar = ->
+	statusBarPlanners = []
+	updateStatusBar()
+
+setInterval updateStatusBar, 2000
+
 module.exports = AtomPlanner =
 
 	activate: ->
@@ -94,6 +150,8 @@ module.exports = AtomPlanner =
 			decorationMarkers = []
 
 			editor.onDidStopChanging ->
+
+				resetStatusBar()
 
 				for oldMarker in decorationMarkers
 					oldMarker?.destroy?()
@@ -150,3 +208,11 @@ module.exports = AtomPlanner =
 
 							currentRow += 1
 							isFirstLine = no
+
+						if planner.tasks.length
+							addPlannerToStatusBar planner
+
+	consumeStatusBar: ( statusBar ) ->
+		statusBarTile = statusBar?.addLeftTile
+			item: statusBarElement
+			priority: 10
