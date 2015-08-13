@@ -58,7 +58,7 @@ timeLeft = ( task ) ->
 	timeZoneOffset = +new Date 1970, 0, 1
 	new Date endingTime - timeNow + timeZoneOffset
 
-createTask = ( planner, match = [] ) ->
+createTask = ( planner, match = [], row ) ->
 	parsedHour = match[ 1 ]
 	parsedMinute = match[ 2 ]
 	parsedText = match[ 3 ] ? ""
@@ -73,6 +73,9 @@ createTask = ( planner, match = [] ) ->
 	startTime: startTime
 	text: parsedText
 	duration: new Date 1970, 0, 1, parsedDurationHour, parsedDurationMinute
+	row: row
+	editor: planner.editor
+	planner: planner
 
 isCurrentTask = ( task ) ->
 	currentTime = hourMinuteToTime()
@@ -85,40 +88,64 @@ getCurrentTask = ( planner ) ->
 	for task in planner.tasks
 		if isCurrentTask task
 			return task
+	return null
 
-decorateTaskText = ( editor, currentRow, parts ) ->
+decorateTaskText = ( task ) ->
+	parts = taskToText task, yes
+
 	startPosition = parts.prefix.length +
 		parts.startTime.length +
 		parts.startTimeDelimiter.length
 
 	endPosition = startPosition + parts.text.length
 
-	partRange = new Range [ currentRow, startPosition ], [ currentRow, endPosition ]
+	partRange = new Range [ task.row, startPosition ], [ task.row, endPosition ]
 
-	partMarker = editor.markBufferRange partRange,
+	partMarker = task.editor.markBufferRange partRange,
 		invalidate: "touch"
 		persistent: no
 
-	decoration = editor.decorateMarker partMarker,
+	decoration = task.editor.decorateMarker partMarker,
 		type: "highlight"
 		class: "planner-task-text"
 
-	partMarker
+	task.editor.plannerMarkers.push partMarker
 
-decoratePlannerHeader = ( editor, currentRow ) ->
-	headerMarker = editor.markBufferPosition [ currentRow, 0 ],
+decoratePlannerHeader = ( planner ) ->
+	headerMarker = planner.editor.markBufferPosition [ planner.headerRow, 0 ],
 		invalidate: "touch"
 		persistent: no
 
-	decoration = editor.decorateMarker headerMarker,
+	decoration = planner.editor.decorateMarker headerMarker,
 		type: "line"
 		class: "planner-header"
 
-	headerMarker
+	planner.editor.plannerMarkers.push headerMarker
+
+cleanHighlight = ( planner ) ->
+	for task in planner.tasks
+		if task.highlightMarker
+			task.highlightMarker.destroy()
+			task.highlightMarker = null
+
+highlightTask = ( task ) ->
+	cleanHighlight task.planner
+
+	marker = task.editor.markBufferPosition [ task.row, 0 ],
+		invalidate: "touch"
+		persistent: no
+
+	decoration = task.editor.decorateMarker marker,
+		type: "line"
+		class: "planner-current-task"
+
+	task.highlightMarker = marker
+	task.editor.plannerMarkers.push marker
 
 statusBarElement = document.createElement "span"
 statusBarTile = null
 statusBarPlanners = []
+planners = []
 
 updateStatusBar = ->
 	textList = []
@@ -138,22 +165,33 @@ resetStatusBar = ->
 	statusBarPlanners = []
 	updateStatusBar()
 
+updateHighlightedTasks = ->
+	for planner in planners
+		task = getCurrentTask planner
+		if task
+			highlightTask task
+		else
+			cleanHighlight planner
+
 setInterval updateStatusBar, 2000
+setInterval updateHighlightedTasks, 2000
 
 module.exports = AtomPlanner =
 
 	activate: ->
 		atom.workspace.observeTextEditors ( editor ) ->
 
-			decorationMarkers = []
+			editor.plannerMarkers = []
 
 			editor.onDidStopChanging ->
 
+				planners = []
 				resetStatusBar()
 
-				for oldMarker in decorationMarkers
+				for oldMarker in editor.plannerMarkers
 					oldMarker?.destroy?()
-				decorationMarkers = []
+				editor.plannerMarkers = []
+				updateHighlightedTasks()
 
 				currentRow = 0
 				lastRowNumber = editor.getLastBufferRow()
@@ -175,15 +213,18 @@ module.exports = AtomPlanner =
 						isHeaderLine = no
 
 						planner =
+							editor: editor
 							title: headerText
+							headerRow: currentRow
 							tasks: []
+							shouldAddToStatusBar: shouldAddToStatusBar
 
-						decorationMarkers.push decoratePlannerHeader editor, currentRow
+						planners.push planner
+
+						decoratePlannerHeader planner
 
 						currentRow += 1
 						isFirstLine = yes
-
-						console.log "============"
 
 						loop
 							currentRowText = editor.lineTextForBufferRow currentRow
@@ -197,9 +238,7 @@ module.exports = AtomPlanner =
 							( currentRowText is "  " ) or
 							( ( currentRowText is "" ) and isFirstLine )
 
-								console.log "line #{currentRow}: text is #{currentRowText}"
-
-								task = createTask planner, taskMatch
+								task = createTask planner, taskMatch, currentRow
 								planner.tasks.push task
 
 								canonicalTaskText = taskToText task
@@ -207,9 +246,10 @@ module.exports = AtomPlanner =
 									editor.setTextInBufferRange currentRowRange, canonicalTaskText,
 										undo: "skip"
 
-								parts = taskToText task, yes
+								decorateTaskText task
 
-								decorationMarkers.push decorateTaskText editor, currentRow, parts
+								if task is getCurrentTask planner
+									highlightTask task
 
 							else
 								break
