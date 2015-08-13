@@ -1,6 +1,6 @@
 { Range } = require "atom"
 
-allHeadersRegexp = /^.+\.planner$/g
+headerRegexp = /^.+\.planner$/
 
 # ["  * 21:02 foo 10 hours 30 minutes", "21", "02", "foo", " 10 hours", "10", " 30 minutes", "30"]
 taskRegexp = /^  \* (\d\d):(\d\d) (.*?)( (\d{1,2}) hours?)?( (\d{1,2}) minutes?)?$/i
@@ -88,42 +88,52 @@ module.exports = AtomPlanner =
 					oldMarker?.destroy?()
 				decorationMarkers = []
 
-				editor.scan allHeadersRegexp, ( headerMatch ) ->
-					headerStartPoint = headerMatch.range.start
-					headerRow = headerStartPoint.row
+				currentRow = 0
+				lastRowNumber = editor.getLastBufferRow()
 
-					planner =
-						title: editor.lineTextForBufferRow headerRow
-						tasks: []
+				while currentRow <= lastRowNumber
 
-					currentRow = headerRow + 1
-					isFirstLine = yes
-					loop
-						currentRowText = editor.lineTextForBufferRow currentRow
-
-						currentRowRange = new Range [ currentRow, 0 ],
-							[ currentRow, currentRowText.length ]
-
-						taskMatch = currentRowText.match taskRegexp
-
-						if taskMatch or
-						( currentRowText is "  " ) or
-						( ( currentRowText is "" ) and isFirstLine )
-
-							task = createTask planner, taskMatch
-							planner.tasks.push task
-
-							canonicalTaskText = taskToText task
-							if canonicalTaskText isnt currentRowText
-								editor.setTextInBufferRange currentRowRange, canonicalTaskText,
-									undo: "skip"
-
-							parts = taskToText task, yes
-
-							decorationMarkers.push decorateTaskText editor, currentRow, parts
-
-						else
-							break
+					headerText = editor.lineTextForBufferRow currentRow
+					if not headerRegexp.test headerText
+						currentRow += 1
+					else
+						planner =
+							title: headerText
+							tasks: []
 
 						currentRow += 1
-						isFirstLine = no
+						isFirstLine = yes
+
+						console.log "============"
+
+						loop
+							currentRowText = editor.lineTextForBufferRow currentRow
+
+							currentRowRange = new Range [ currentRow, 0 ],
+								[ currentRow, currentRowText.length ]
+
+							taskMatch = currentRowText.match taskRegexp
+
+							if taskMatch or
+							( currentRowText is "  " ) or
+							( ( currentRowText is "" ) and isFirstLine )
+
+								console.log "line #{currentRow}: text is #{currentRowText}"
+
+								task = createTask planner, taskMatch
+								planner.tasks.push task
+
+								canonicalTaskText = taskToText task
+								if canonicalTaskText isnt currentRowText
+									editor.setTextInBufferRange currentRowRange, canonicalTaskText,
+										undo: "skip"
+
+								parts = taskToText task, yes
+
+								decorationMarkers.push decorateTaskText editor, currentRow, parts
+
+							else
+								break
+
+							currentRow += 1
+							isFirstLine = no
