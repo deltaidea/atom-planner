@@ -144,34 +144,37 @@ highlightTask = ( task ) ->
 
 statusBarElement = document.createElement "span"
 statusBarTile = null
-statusBarPlanners = []
-planners = []
 
 updateStatusBar = ->
+	editors = atom.workspace.getTextEditors()
 	textList = []
 
-	for planner in statusBarPlanners
-		task = getCurrentTask planner
-		if task
-			textList.push "#{task.text} - #{timeToText ( timeLeft task ), yes}"
+	for editor in editors
+		if not editor?.planners
+			continue
+
+		for planner in editor.planners
+			if not planner.shouldAddToStatusBar
+				continue
+
+			task = getCurrentTask planner
+			if task
+				textList.push "#{task.text} - #{timeToText ( timeLeft task ), yes}"
 
 	statusBarElement.textContent = textList.join ", "
 
-addPlannerToStatusBar = ( planner ) ->
-	statusBarPlanners.push planner
-	updateStatusBar()
-
-resetStatusBar = ->
-	statusBarPlanners = []
-	updateStatusBar()
-
 updateHighlightedTasks = ->
-	for planner in planners
-		task = getCurrentTask planner
-		if task
-			highlightTask task
-		else
-			cleanHighlight planner
+	editors = atom.workspace.getTextEditors()
+	for editor in editors
+		if not editor?.planners
+			continue
+
+		for planner in editor.planners
+			task = getCurrentTask planner
+			if task
+				highlightTask task
+			else
+				cleanHighlight planner
 
 setInterval updateStatusBar, 2000
 setInterval updateHighlightedTasks, 2000
@@ -185,13 +188,11 @@ module.exports = AtomPlanner =
 
 			editor.onDidStopChanging ->
 
-				planners = []
-				resetStatusBar()
+				editor.planners = []
 
 				for oldMarker in editor.plannerMarkers
 					oldMarker?.destroy?()
 				editor.plannerMarkers = []
-				updateHighlightedTasks()
 
 				currentRow = 0
 				lastRowNumber = editor.getLastBufferRow()
@@ -219,7 +220,7 @@ module.exports = AtomPlanner =
 							tasks: []
 							shouldAddToStatusBar: shouldAddToStatusBar
 
-						planners.push planner
+						editor.planners.push planner
 
 						decoratePlannerHeader planner
 
@@ -257,8 +258,8 @@ module.exports = AtomPlanner =
 							currentRow += 1
 							isFirstLine = no
 
-						if planner.tasks.length and shouldAddToStatusBar
-							addPlannerToStatusBar planner
+				updateStatusBar()
+				updateHighlightedTasks()
 
 	consumeStatusBar: ( statusBar ) ->
 		statusBarTile = statusBar?.addLeftTile
