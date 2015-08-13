@@ -2,7 +2,7 @@
   "name": "planner",
   "description": "Plan your day using nothing more than text",
   "main": "./lib/main",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": "true",
   "engines": {
     "atom": "~1.0.0"
